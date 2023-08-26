@@ -1,6 +1,6 @@
 resource "aws_vpc" "prod" {
-  cidr_block       = "10.0.0.0/16"
-  instance_tenancy = "default"
+  cidr_block       = var.vpc_cidr
+  instance_tenancy = var.tenancy
 
   tags = {
     Name = "prod"
@@ -11,32 +11,28 @@ resource "aws_internet_gateway" "prod" {
   vpc_id = aws_vpc.prod.id
 
   tags = {
-    Name =  "prod"  
+    Name = var.igw_tag  
   }
-}
-
-variable "tag" {
-  default = "prod"
 }
 
 
 resource "aws_subnet" "pub-sn" {
   vpc_id     = aws_vpc.prod.id
-  cidr_block = "10.0.1.0/24"
-  map_public_ip_on_launch = "true"
-
+  cidr_block = var.cidr_block_of_pub_sn
+  map_public_ip_on_launch = var.auto_assign_public_ip
+  availability_zone = var.az_pub_sn
   tags = {
-    Name = "public-sn"
+    Name = var.tag_public_sn 
   }
 }
 
 resource "aws_subnet" "private-sn" {
   vpc_id     = aws_vpc.prod.id
-  cidr_block = "10.0.2.0/24"
-  availability_zone = "us-east-1a"
+  cidr_block = var.cidr_block_of_private_sn
+  availability_zone = var.az_private_sn
  
   tags = {
-    Name = "private sn"
+    Name = var.tag_private_sn
   }
 }
 
@@ -47,14 +43,8 @@ resource "aws_route_table" "pub-rt" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.prod.id
   }
-
-  route {
-    ipv6_cidr_block = "::/0"
-    gateway_id      = aws_internet_gateway.prod.id
-  }
-
   tags = {
-    Name = "pub-rt"
+    Name = var.tag_pub_rt 
   }
 }
 
@@ -62,7 +52,7 @@ resource "aws_route_table" "pub-rt" {
 resource "aws_route_table" "private-rt" {
   vpc_id = aws_vpc.prod.id
   tags = {
-    Name = "private-rt"
+    Name = var.tag_private_rt
   }
 }
 
@@ -83,7 +73,7 @@ resource "aws_security_group" "public_sg" {
   name_prefix = "public-"
   vpc_id      = aws_vpc.prod.id
   tags = {
-    Name = "desamist-public-sg"
+    Name = var.public_sgTAG
   }
 }
 
@@ -91,47 +81,47 @@ resource "aws_security_group" "private_sg" {
   name_prefix = "private-"
   vpc_id      = aws_vpc.prod.id
    tags = {
-    Name = "desamist-private-sg"
+    Name = var.private_sgTAG
   }
 }
 
 resource "aws_security_group_rule" "public_inbound_http" {
   type        = "ingress"
-  from_port   = 22
-  to_port     = 22
-  protocol    = "tcp"
+  from_port   = var.ingress
+  to_port     = var.ingress
+  protocol    = var.protocol
   cidr_blocks = ["0.0.0.0/0"]
   security_group_id = aws_security_group.public_sg.id
 }
 
 resource "aws_security_group_rule" "private_inbound_ssh" {
   type        = "ingress"
-  from_port   = 22
-  to_port     = 22
-  protocol    = "tcp"
-  cidr_blocks = ["10.0.1.0/24"] 
+  from_port   = var.ingress
+  to_port     = var.ingress
+  protocol    = var.protocol
+  cidr_blocks = [var.cidr_block_of_pub_sn]
   security_group_id = aws_security_group.private_sg.id
 }
 
 resource "aws_instance" "public_Instance" {
-  ami           = "ami-053b0d53c279acc90" 
-  instance_type = "t2.micro"
-  key_name      = "demo1"
+  ami           = var.ami
+  instance_type = var.instance_type
+  key_name      = var.key
   subnet_id     = aws_subnet.pub-sn.id
-  associate_public_ip_address = true
+  associate_public_ip_address = var.public_ip_association
   vpc_security_group_ids = [aws_security_group.public_sg.id]
   tags = {
-    Name = "PublicInstance"
+    Name = var.public_instanceTAG
   }
 }
 
 resource "aws_instance" "private_Instance" {
-  ami           = "ami-053b0d53c279acc90" 
-  instance_type = "t2.micro"
-  key_name      = "demo1"
+  ami           = var.ami
+  instance_type = var.instance_type
+  key_name      = var.key
   subnet_id     = aws_subnet.private-sn.id
   vpc_security_group_ids = [aws_security_group.private_sg.id]
   tags = {
-    Name = "PrivateInstance"
+    Name = var.private_instanceTAG
   }
 }
